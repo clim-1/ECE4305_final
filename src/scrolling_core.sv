@@ -14,11 +14,10 @@ module scrolling_core (
   localparam ADDR_WIDTH = 9;  // number of address bits
   localparam         CD = 12;   // color depth
   localparam CNTR_WIDTH = 32;
-  localparam LANE_WIDTH = 2;
+  localparam LANE_WIDTH = 2;  // color code width not how many px
   localparam DVSR_WIDTH = 8;
   localparam        MAX = 400;
   localparam LANE_COUNT = 8;
-  localparam LANE_WIDE  = 720 / LANE_COUNT;
 
   // delaration
   logic wr_en, wr_lane, wr_dvsr, wr_byps, wr_down;
@@ -30,15 +29,27 @@ module scrolling_core (
   logic [CD-1:0] lane_rgb;
   logic [CD-1:0] chrom_rgb;
   logic [10:0] ram_y;
-  logic [11:0] coded_color [1:0];
+  logic [11:0] coded_color [3:0];
   logic [$clog2(LANE_COUNT)-1:0]lane_now;
 
-  assign coded_color[0] = 'hffe; // kinda white
+  // 8 32 px lanes with 
+  // adj_x bits:
+  //----------------------------------
+  //|XX|XX|XX| lane # |  x inside    |
+  //|10|09|08|07    05|04          00|
+  //----------------------------------
+
+  always_comb // lane determination logic
+  begin
+    if (~&x[9:8]) lane_rgb = coded_color[lane_out[x[7:5]]];
+    else lane_rgb = si_rgb;
+  end
+
+  assign coded_color[0] = 'h222; // kinda gray
   assign coded_color[1] = 'he34; // kinda red
   assign coded_color[2] = 'hadd; // kinda cyan
-  assign coded_color[3] = 'h479; // kinda blue
+  assign coded_color[3] = 'hffe; // kinda white
   assign ram_y = (down_reg)? MAX - 1 - y: y; // flip vertically
-  assign lane_now = x/LANE_WIDE;
 
     genvar i;
     generate 
@@ -67,13 +78,11 @@ module scrolling_core (
           else
           begin
             if (wr_lane)
-              lane_in[i] <= wr_data[(LANE_WIDTH*(i+1))-1:LANE_WIDTH*i];              
-          end
+              lane_in[i] <= wr_data[(LANE_WIDTH*(i+1))-1:LANE_WIDTH*i];
+          end              
         end
       end
     endgenerate
-
-  assign lane_rgb = coded_color[lane_out[(lane_now>LANE_COUNT)?0:lane_now]];
 
   // register
   always_ff @(posedge clk, posedge reset)
@@ -97,7 +106,5 @@ module scrolling_core (
   assign wr_dvsr = wr_en && (addr[1:0]==2'b01);
   assign wr_byps = wr_en && (addr[1:0]==2'b10);
   assign wr_down = wr_en && (addr[1:0]==2'b11);
-  // chrome-key blending and multiplexing
-  assign chrom_rgb = (lane_rgb != 0) ? lane_rgb : si_rgb;
-  assign so_rgb = (bypass_reg) ? si_rgb : chrom_rgb;
+  assign so_rgb = (bypass_reg) ? si_rgb : lane_rgb;
 endmodule

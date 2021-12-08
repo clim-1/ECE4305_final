@@ -16,8 +16,8 @@ public:
 	   BYPS_REG = 0x0002,
 	   DOWN_REG = 0x0003
    };
-   const int LANE_COUNT = 1;
-   const int LANE_WIDTH = 1;
+   const int LANE_COUNT = 8;
+   const int LANE_WIDTH = 2;
    const uint32_t LANE_MASK = (1 << LANE_WIDTH) - 1;
    const uint32_t LANE_nMASK = ~LANE_MASK;
    /* methods */

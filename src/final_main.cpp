@@ -28,5 +28,11 @@ int main()
 		sleep_ms(500);
 		scrl.release();
 		sleep_ms(500);
+		for (uint32_t i = 1; i < 4; i++)
+			for (int j = 0; j < 8; j++)
+			{
+				io_write(get_sprite_addr(BRIDGE_BASE, V5_USER5), 0, (uint32_t) i<<j*2 );
+				sleep_ms(125);
+			}
 	}
 }
