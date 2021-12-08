@@ -20,90 +20,116 @@ module chu_ddfs_core
 
    // declaration
    logic [PW-1:0] pha_reg, fccw_reg, focw_reg;
-   logic [PW-1:0] fccw0,fccw1,fccw2,fccw3;
+   logic [PW-1:0] fccw0,fccw1,fccw2,fccw3,fccw4,fccw5,fccw6,fccw7;
    logic [PW-1:0] focw, pha;
    logic [15:0] env_reg;
    logic [15:0] env;
    logic [2:0] ctrl_reg;
-   logic [1:0] track_reg;
+   logic [2:0] track_reg;
    logic wr_en, wr_fccw, wr_focw, wr_pha, wr_env, wr_ctrl;
-   logic digital_out0,digital_out1,digital_out2,digital_out3;
+   logic dout0,dout1,dout2,dout3,dout4,dout5,dout6,dout7;
    logic [15:0] pcm; 
-   logic [15:0] pcm0,pcm1,pcm2,pcm3;
-   logic pdm0,pdm1,pdm2,pdm3;
-   logic [3:0] enable;
-   logic [1:0] counter;
+   logic [15:0] pcm0,pcm1,pcm2,pcm3,pcm4,pcm5,pcm6,pcm7;
+   //logic pdm0,pdm1,pdm2,pdm3;
+   //logic [3:0] enable;
+   logic [2:0] counter;
    
    
 always @(posedge clk)
 begin
     case (track_reg)
-    2'b00: begin
-    enable = 4'b0001;
+    3'b000: begin
     fccw0 = fccw_reg;
     end
-    2'b01: begin
-    enable = 4'b0010;
+    3'b001: begin
     fccw1 = fccw_reg;
     end
-    2'b10: begin 
-    enable = 4'b0100;
+    3'b010: begin 
     fccw2 = fccw_reg;
     end
-    2'b11: begin
-    enable = 4'b1000;
+    3'b011: begin
     fccw3 = fccw_reg;
     end
+    3'b100: begin
+    fccw4 = fccw_reg;
+    end
+    3'b101: begin
+    fccw5 = fccw_reg;
+    end
+    3'b110: begin
+    fccw6 = fccw_reg;
+    end
+    3'b111: begin
+    fccw7 = fccw_reg;
+    end
+    
     endcase
 end
 
    // instantiate ddfs
    ddfs #(.PW(PW)) ddfs_unit0
-      (.*, .fccw(fccw0), .pcm_out(pcm0), .pulse_out(digital_out0));
+      (.*, .fccw(fccw0), .pcm_out(pcm0), .pulse_out(dout0));
       
    ddfs #(.PW(PW)) ddfs_unit1
-      (.*, .fccw(fccw1), .pcm_out(pcm1), .pulse_out(digital_out1));
+      (.*, .fccw(fccw1), .pcm_out(pcm1), .pulse_out(dout1));
       
    ddfs #(.PW(PW)) ddfs_unit2
-      (.*, .fccw(fccw2), .pcm_out(pcm2), .pulse_out(digital_out2));
+      (.*, .fccw(fccw2), .pcm_out(pcm2), .pulse_out(dout2));
       
    ddfs #(.PW(PW)) ddfs_unit3
-      (.*, .fccw(fccw3), .pcm_out(pcm3), .pulse_out(digital_out3));  
-
+      (.*, .fccw(fccw3), .pcm_out(pcm3), .pulse_out(dout3));  
+      
+   ddfs #(.PW(PW)) ddfs_unit4
+      (.*, .fccw(fccw4), .pcm_out(pcm4), .pulse_out(dout4));  
+        
+   ddfs #(.PW(PW)) ddfs_unit5
+      (.*, .fccw(fccw5), .pcm_out(pcm5), .pulse_out(dout5));
+      
+   ddfs #(.PW(PW)) ddfs_unit6
+      (.*, .fccw(fccw6), .pcm_out(pcm6), .pulse_out(dout6));
+              
+   ddfs #(.PW(PW)) ddfs_unit7
+      (.*, .fccw(fccw7), .pcm_out(pcm7), .pulse_out(dout7));       
    // instantiate 1-bit dac
    ds_1bit_dac #(.W(16)) dac_unit0 
-      (.*, .pcm_in(pcm0),.pdm_out(pdm0));
+      (.*, .pcm_in(pcm));
       
-   ds_1bit_dac #(.W(16)) dac_unit1 
-      (.*, .pcm_in(pcm1),.pdm_out(pdm1));
-      
-   ds_1bit_dac #(.W(16)) dac_unit2 
-      (.*, .pcm_in(pcm2),.pdm_out(pdm2));
-      
-   ds_1bit_dac #(.W(16)) dac_unit3 
-      (.*, .pcm_in(pcm3),.pdm_out(pdm3));
-  // assign pcm_out = pcm;
    
    // mux for pdmout
-   always_ff @(posedge clk)
+   always @(posedge clk)
    begin
-   if (counter == 2'b00) begin
-   pdm_out <= pdm0;
-   pcm_out <= pcm0;
+   if (counter == 3'b000) begin
+   pcm = pcm0;
+   digital_out=dout0;
    end
-   if (counter == 2'b01) begin
-   pdm_out <= pdm1;
-   pcm_out <= pcm1;
+   if (counter == 3'b001) begin
+   pcm = pcm1;
+   digital_out=dout1;
    end
-   if (counter == 2'b10) begin
-   pdm_out <= pdm2;
-   pcm_out <= pcm2;
+   if (counter == 3'b010) begin
+   pcm = pcm2;
+   digital_out=dout2;
    end
-   if (counter == 2'b11) begin
-   pdm_out <= pdm3;
-   pcm_out <= pcm3;
+   if (counter == 3'b011) begin
+   pcm = pcm3;
+   digital_out=dout3;
    end
-   counter <= counter + 1;
+   if (counter == 3'b100) begin
+   pcm = pcm4;
+   digital_out=dout4;
+   end
+   if (counter == 3'b101) begin
+   pcm = pcm5;
+   digital_out=dout5;
+   end
+   if (counter == 3'b110) begin
+   pcm = pcm6;
+   digital_out=dout6;
+   end
+   if (counter == 3'b111) begin
+   pcm = pcm7;
+   digital_out=dout7;
+   end
    end
    
    // registers
@@ -117,6 +143,7 @@ end
          counter <= 0;
       end 
       else begin
+         counter <= counter + 1;
          if (wr_fccw)
             fccw_reg <= wr_data[PW-1:0];
          if (wr_focw)
@@ -128,7 +155,7 @@ end
          if (wr_ctrl)
             ctrl_reg <= wr_data[2:0];
          if (wr_track)
-            track_reg <= wr_data[1:0];
+            track_reg <= wr_data[2:0];
        end
 
        // decoding
