@@ -1,13 +1,3 @@
-/*****************************************************************//**
- * @file main_sampler_test.cpp
- *
- * @brief Basic test of nexys4 ddr mmio cores
- *
- * @author p chu
- * @version v1.0: initial release
- *********************************************************************/
-
-// #define _DEBUG
 #include "chu_init.h"
 #include "gpio_cores.h"
 #include "xadc_core.h"
@@ -17,76 +7,109 @@
 #include "ps2_core.h"
 #include "ddfs_core.h"
 #include "adsr_core.h"
+#include "vga_core.h"
+#include "scrl_core.h"
 
-/**
- * blink once per second for 5 times.
- * provide a sanity check for timer (based on SYS_CLK_FREQ)
- * @param led_p pointer to led instance
- */
-void timer_check(GpoCore *led_p) {
-   int i;
+void turn_things_off()
+{
+	io_write(get_sprite_addr(BRIDGE_BASE, V3_GHOST), 0x2000, 0x00000001); 	// bypass ghost
+	io_write(get_sprite_addr(BRIDGE_BASE, V1_MOUSE), 0x2000, 0x00000001); 	// bypass mouse
+	io_write(get_slot_addr(BRIDGE_BASE, S8_SSEG), 0, 0xffffffff);			// turn 7seg leds off
+	io_write(get_slot_addr(BRIDGE_BASE, S8_SSEG), 1, 0xffffffff);			// turn 7seg leds off
+}
 
-   for (i = 0; i < 5; i++) {
-      led_p->write(0xffff);
-      sleep_ms(500);
-      led_p->write(0x0000);
-      sleep_ms(500);
-      debug("timer check - (loop #)/now: ", i, now_ms());
+
+void osd_overlay(OsdCore *osd_p) {
+   osd_p->set_color(0x000, 0xfff); // dark gray/green
+   osd_p->bypass(0);
+
+   int notes[8] = {67,68,69,70,71,65,66,67};
+   int keys [8] = {81,87,69,82,84,89,85,73};
+   for (int i = 0; i < 8; i++){
+	   osd_p->wr_char(2+ (4*i),25,notes[i],1);
+	   osd_p->wr_char(2+ (4*i),28,keys[i],1);
    }
 }
 
-/**
- * Test pattern in 7-segment LEDs
- * @param sseg_p pointer to 7-seg LED instance
- */
+void keyboard(AdsrCore *adsr_p, Ps2Core *ps2_p, GpiCore *sw_p, ScrlCore *scrl_p, DdfsCore *ddfs_p)
+{
+	#define C 	0
+	#define Cs 	1
+	#define Db	1
+	#define D 	2
+	#define Ds 	3
+	#define Eb	3
+	#define E 	4
+	#define F 	5
+	#define Fs	6
+	#define Gb 	6
+	#define G 	7
+	#define Gs 	8
+	#define Ab	8
+	#define A 	9
+	#define As 	10
+	#define Bb	10
+	#define B 	11
+
+	char ch;
+
+	adsr_p->select_env(sw_p->read());
+	if(ps2_p->get_kb_ch(&ch)){
+        uart.disp(ch);
+        uart.disp(" ");
+        switch (ch)
+        {
+        case 'q':
+        {adsr_p->play_note(C,4,500,0);
+        io_write(get_sprite_addr(BRIDGE_BASE, V5_USER5), 0, (uint32_t) 1<<0*2 );
+        break;}
+
+        case 'w':
+        {adsr_p->play_note(D,4,500,0);
+        io_write(get_sprite_addr(BRIDGE_BASE, V5_USER5), 0, (uint32_t) 1<<1*2 );
+
+        break;}
+        case 'e':
+        {adsr_p->play_note(E,4,500,0);
+        io_write(get_sprite_addr(BRIDGE_BASE, V5_USER5), 0, (uint32_t) 1<<2*2 );
+        break;}
+
+        case 'r':
+        {adsr_p->play_note(F,4,500,0);
+        io_write(get_sprite_addr(BRIDGE_BASE, V5_USER5), 0, (uint32_t) 1<<3*2 );
+        break;}
+
+        case 't':
+        {adsr_p->play_note(G,4,500,0);
+        io_write(get_sprite_addr(BRIDGE_BASE, V5_USER5), 0, (uint32_t) 1<<4*2 );
+        break;}
+
+        case 'y':
+        {adsr_p->play_note(A,4,500,0);
+        io_write(get_sprite_addr(BRIDGE_BASE, V5_USER5), 0, (uint32_t) 1<<5*2 );
+        break;}
+
+        case 'u':
+        {adsr_p->play_note(B,4,500,0);
+        io_write(get_sprite_addr(BRIDGE_BASE, V5_USER5), 0, (uint32_t) 1<<6*2 );
+        break;}
+
+        case 'i':
+        {adsr_p->play_note(C,5,500,0);
+        io_write(get_sprite_addr(BRIDGE_BASE, V5_USER5), 0, (uint32_t) 1<<7*2 );
+        break;}
+
+        default:break;
+        }
+        sleep_ms(50);
+        scrl_p->release_all_lane();
 
 
-void ps2_check(Ps2Core *ps2_p) {
-   int id;
-   int lbtn, rbtn, xmov, ymov;
-   char ch;
-   unsigned long last;
+	}
 
-   uart.disp("\n\rPS2 device (1-keyboard / 2-mouse): ");
-   id = ps2_p->init();
-   uart.disp(id);
-   uart.disp("\n\r");
-   last = now_ms();
-   do {
-      if (id == 2) {  // mouse
-         if (ps2_p->get_mouse_activity(&lbtn, &rbtn, &xmov, &ymov)) {
-            uart.disp("[");
-            uart.disp(lbtn);
-            uart.disp(", ");
-            uart.disp(rbtn);
-            uart.disp(", ");
-            uart.disp(xmov);
-            uart.disp(", ");
-            uart.disp(ymov);
-            uart.disp("] \r\n");
-            last = now_ms();
-
-         }   // end get_mouse_activitiy()
-      } else {
-         if (ps2_p->get_kb_ch(&ch)) {
-            uart.disp(ch);
-            uart.disp(" ");
-            last = now_ms();
-         } // end get_kb_ch()
-      }  // end id==2
-   } while (now_ms() - last < 5000);
-   uart.disp("\n\rExit PS2 test \n\r");
 
 }
 
-/**
- * play primary notes with ddfs
- * @param adsr_p pointer to adsr core
- * @param ddfs_p pointer to ddfs core
- * @note: music tempo is defined as beats of quarter-note per minute.
- *        60 bpm is 1 sec per quarter note
- *
- */
 void adsr_player(AdsrCore *adsr_p, GpoCore *led_p, GpiCore *sw_p) {
 
 	//set tempo of music
@@ -148,7 +171,6 @@ void adsr_player(AdsrCore *adsr_p, GpoCore *led_p, GpiCore *sw_p) {
 
    int noteAmt = sizeof(melody0)/sizeof(melody0[0]);
 
-   adsr_p->init();
    adsr_p->select_env(sw_p->read());
 
 	for (int i = 0; i < noteAmt;i++)
@@ -157,7 +179,6 @@ void adsr_player(AdsrCore *adsr_p, GpoCore *led_p, GpiCore *sw_p) {
 		adsr_p->play_note(melody0[i],octave0[i],500,1);
 		adsr_p->play_note(melody1[i],octave1[i],500,0);
 //		adsr_p->play_note(C,3,250,0);
-//		sleep_ms(5);
 //		adsr_p->play_note(C,2,200,0);
 //		adsr_p->play_note(E,2,200,1);
 //		adsr_p->play_note(G,2,200,2);
@@ -182,16 +203,22 @@ I2cCore adt7420(get_slot_addr(BRIDGE_BASE, S10_I2C));
 Ps2Core ps2(get_slot_addr(BRIDGE_BASE, S11_PS2));
 DdfsCore ddfs(get_slot_addr(BRIDGE_BASE, S12_DDFS));
 AdsrCore adsr(get_slot_addr(BRIDGE_BASE, S13_ADSR), &ddfs);
-
+ScrlCore scrl(get_sprite_addr(BRIDGE_BASE, V5_USER5));
+OsdCore osd(get_sprite_addr(BRIDGE_BASE, V2_OSD));
 
 int main() {
    //uint8_t id, ;
-
- //  timer_check(&led);
+	turn_things_off();
+	scrl.set_speed(1);
+	scrl.down(0);
+	scrl.bypass(0);
 	adsr.init();
+	ps2.init();
    while (1) {
-	   	adsr_player(&adsr, &led, &sw);
-      sleep_ms(500);
+
+	   keyboard(&adsr, &ps2, &sw, &scrl, &ddfs);
+	   osd_overlay(&osd);
+
    } //while
 } //main
 
